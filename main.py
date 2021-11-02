@@ -13,9 +13,9 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
     res = []
     for i in range(arg[0] - 1, arg[0] + 2):
         for j in range(arg[1] - 1, arg[1] + 2):
-            posiible_step = True
+            posiible_step = []
             diagonal = list(
-                filter(lambda x: x[0] + x[1] == i + j or 8 - x[1] + x[0] == 8 - arg[1] + arg[0], that_color))
+                filter(lambda x: x[0] + x[1] == i + j or 8 - x[1] + x[0] == 8 - j + i, that_color))
             x_dim = list(filter(lambda x: x[0] == i, that_color))
             y_dim = list(filter(lambda x: x[1] == j, that_color))
 
@@ -38,7 +38,9 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
                     x_coords += step[0]
                     y_coords += step[1]
                 if counter < l or l == 1:
-                    posiible_step = False
+                    posiible_step.append(False)
+                else:
+                    posiible_step.append(True)
             for ray in x_dim:
                 step = []
                 x_coords, y_coords = i, j
@@ -52,7 +54,9 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
                     counter += 1
                     y_coords += step[0]
                 if counter < l or l == 1:
-                    posiible_step = False
+                    posiible_step.append(False)
+                else:
+                    posiible_step.append(True)
             for ray in y_dim:
                 step = []
                 x_coords, y_coords = i, j
@@ -69,9 +73,12 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
                     counter += 1
 
                 if counter < l or l == 0:
-                    posiible_step = False
-            if len(diagonal) + len(x_dim) + len(y_dim) > 0 and posiible_step:
+                    posiible_step.append(False)
+                else:
+                    posiible_step.append(True)
+            if len(diagonal) + len(x_dim) + len(y_dim) > 0 and len(posiible_step) > 0  and True in posiible_step:
                 res.append([i,  j])
+
 
 
     delimeter = lambda x: [x[0], x[1]] not in that_color and [x[0], x[1]] not in opponent_color
@@ -134,11 +141,6 @@ class Example(QWidget):
                 self.figures[i][j].setEnabled(False)
 
     def predict_step(self):
-        for i, j in self.predicted:
-            self.figures[i][j].setStyleSheet("QPushButton { background-color: green }"
-            "QPushButton:hover { background-color: yellow; background-image : "
-            "url(bf.png)}")
-            self.figures[i][j].setEnabled(False)
         self.predicted = []
         opponent_color, that_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
@@ -148,7 +150,8 @@ class Example(QWidget):
                 print(d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures))
                 for i, j in d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures):
                     self.figures[i][j].setStyleSheet("QPushButton { background-color: yellow }"
-                                                           "QPushButton:hover {background-image : url(bf.png)}")
+                                                           "QPushButton:hover {background-image : " +
+                                    f"url({self.images[(self.counter + 1) % 2]})" + "}")
                     self.predicted.append([i, j])
                     self.figures[i][j].setEnabled(True)
 
@@ -172,6 +175,7 @@ class Example(QWidget):
     def step(self):
 
         self.counter = (self.counter + 1) % 2
+        self.res = []
         print(self.sender())
         ind = \
             [[i, _list.index(self.sender())] for i, _list in enumerate(self.figures) if
@@ -179,7 +183,8 @@ class Example(QWidget):
         self.predicted.remove(ind)
         for i, j in self.predicted:
             if self.figures[i][j].styleSheet() == "QPushButton { background-color: yellow }" + \
-                                                           "QPushButton:hover {background-image : url(bf.png)}":
+                                                           "QPushButton:hover {background-image : " + \
+                                    f"url({self.images[self.counter]})" + "}":
                 self.figures[i][j].setStyleSheet("QPushButton { background-color: green }"
                                                        "QPushButton:hover { background-color: yellow;" +
                                                        " background-image : url(bf.png)}")
@@ -189,12 +194,13 @@ class Example(QWidget):
         ind = \
             [[i, _list.index(self.sender())] for i, _list in enumerate(self.figures) if
              self.sender() in self.figures[i]][0]
-        color = self.black_white[black_or_white(self.counter)]
+        opponent_color, that_color = self.black_white[black_or_white(self.counter)], \
+                                     self.black_white[black_or_white(self.counter + 1 % 2)]
         #        print(color[0][1])
         diagonal = list(
-            filter(lambda x: x[0] + x[1] == ind[0] + ind[1] or 8 - x[1] + x[0] == 8 - ind[1] + ind[0], color))
-        x_dim = list(filter(lambda x: x[0] == ind[0], color))
-        y_dim = list(filter(lambda x: x[1] == ind[1], color))
+            filter(lambda x: x[0] + x[1] == ind[0] + ind[1] or 8 - x[1] + x[0] == 8 - ind[1] + ind[0], that_color))
+        x_dim = list(filter(lambda x: x[0] == ind[0], that_color))
+        y_dim = list(filter(lambda x: x[1] == ind[1], that_color))
         if len(diagonal) != 0:
             diagonal = set(
                 map(lambda x: tuple(x), [min(diagonal, key=lambda x: x[0]), min(diagonal, key=lambda x: x[1]),
@@ -218,10 +224,7 @@ class Example(QWidget):
                 step.append(-1)
 
             while [x_coords, y_coords] != list(ray):
-                self.figures[x_coords][y_coords].setStyleSheet \
-                    ("QPushButton {background-color: green; background-image : " +
-                     f"url({self.images[self.counter]})" + "}")
-                if [x_coords, y_coords] not in color:
+                if [x_coords, y_coords] not in that_color:
                     self.black_white[black_or_white(self.counter)].append([x_coords, y_coords])
                     if [x_coords, y_coords] in self.black_white[black_or_white((self.counter + 1) % 2)]:
                         self.black_white[black_or_white((self.counter + 1) % 2)].remove([x_coords, y_coords])
@@ -239,7 +242,7 @@ class Example(QWidget):
                 self.figures[x_coords][y_coords].setStyleSheet \
                     ("QPushButton {background-color: green; background-image : " +
                      f"url({self.images[self.counter]})" + "}")
-                if [x_coords, y_coords] not in color and [x_coords, y_coords] != ind:
+                if [x_coords, y_coords] not in that_color and [x_coords, y_coords] != ind:
                     self.black_white[black_or_white(self.counter)].append([x_coords, y_coords])
                     if [x_coords, y_coords] in self.black_white[black_or_white((self.counter + 1) % 2)]:
                         self.black_white[black_or_white((self.counter + 1) % 2)].remove([x_coords, y_coords])
@@ -256,7 +259,7 @@ class Example(QWidget):
                 self.figures[x_coords][y_coords].setStyleSheet \
                     ("QPushButton {background-color: green; background-image : " +
                      f"url({self.images[self.counter]})" + "}")
-                if [x_coords, y_coords] not in color:
+                if [x_coords, y_coords] not in that_color:
                     self.black_white[black_or_white(self.counter)].append([x_coords, y_coords])
                     if [x_coords, y_coords] in self.black_white[black_or_white((self.counter + 1) % 2)]:
                         self.black_white[black_or_white((self.counter + 1) % 2)].remove([x_coords, y_coords])
