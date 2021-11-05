@@ -32,7 +32,7 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
                     step.append(-1)
                 counter = 0
                 l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-                print(l)
+
                 while [x_coords, y_coords] != list(ray) and (
                         [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [i, j] and counter == 0)):
                     counter += 1
@@ -69,7 +69,6 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
                 counter = 0
                 x_coords += step[0]
                 l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-                print(l)
                 while [x_coords, y_coords] != list(ray) and (
                         [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [i, j] and counter == 0)):
                     x_coords += step[0]
@@ -106,7 +105,7 @@ class Example(QWidget):
         self.last_step_button = QPushButton('☚', self)
         self.last_step_button.resize(50, 50)
         self.last_step_button.clicked.connect(self.previous_step)
-        self.last_step_button.move(100, 150)
+        self.last_step_button.move(100, 130)
         self.counter = 0
         self.btn4 = QPushButton('123', self)
         self.btn4.move(250, 205)
@@ -114,6 +113,11 @@ class Example(QWidget):
         self.figures = []
         self.predicted = []
         self.stack_of_steps = {"predicted": [], "figures": []}
+        self.no_steps = False
+        self.msg = QMessageBox()
+        self.msg.setWindowTitle("Уведомдение")
+        self.msg.setText("Игра окончена")
+        self.msg.setIcon(QMessageBox.Warning)
 
         for i in range(8):
             a = []
@@ -125,13 +129,12 @@ class Example(QWidget):
                 self.btn3.move(50 * j, 200 + 50 * i)
                 self.btn3.setStyleSheet("QPushButton { background-color: green }"
                                         "QPushButton:hover { background-color: yellow; background-image : url(bf.png)}")
-                print("QPushButton:hover { background-color: yellow; background-image : url(image)".replace(
-                    'url(image)', f'url({self.images[0]})'))
+
                 a.append(self.btn3)
 
                 self.btn3.setEnabled(False)
                 self.btn3.clicked.connect(self.step)
-                print(self.btn3.pos())
+
 
             self.figures.append(a)
 
@@ -139,11 +142,11 @@ class Example(QWidget):
         if len(self.stack_of_steps['figures']) > 1:
             self.stack_of_steps["figures"].pop()
             self.stack_of_steps["predicted"].pop()
-#        print(*self.stack_of_steps["figures"])
+
         self.counter = (self.counter - 1) % 2
         c = 0
         self.clear_field()
-        print(self.stack_of_steps["predicted"][-1][0])
+
         self.predicted = self.stack_of_steps["predicted"][-1][0]
         self.black_white = self.stack_of_steps["figures"][-1][0]
         self.black_white = {'white': self.stack_of_steps["figures"][-1][0][:], 'black': self.stack_of_steps["figures"][-1][1][:]}
@@ -177,8 +180,7 @@ class Example(QWidget):
                 self.figures[i][j].setStyleSheet("QPushButton { background-color: green }"
                                                  "QPushButton:hover { background-color: yellow; background-image : "
                                                  "url(bf.png)}")
-                print("QPushButton:hover { background-color: yellow; background-image : url(image)".replace(
-                    'url(image)', f'url({self.images[0]})'))
+
                 self.figures[i][j].setEnabled(False)
 
 
@@ -190,10 +192,10 @@ class Example(QWidget):
         self.predicted = []
         opponent_color, that_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
-        print('1: ', opponent_color, that_color)
+
         for enemy in opponent_color:
             try:
-                print(d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures))
+
                 for i, j in d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures):
                     self.figures[i][j].setStyleSheet("QPushButton { background-color: yellow }"
                                                      "QPushButton:hover {background-image : " +
@@ -203,6 +205,23 @@ class Example(QWidget):
 
             except IndexError:
                 print('oops')
+        if len(self.predicted) == 0:
+            if self.no_steps:
+                self.no_steps = False
+                if len(self.black_white['white']) > len(self.black_white['black']):
+                    self.msg.setText(self.msg.text() + '. Победили белые фишки.')
+                elif len(self.black_white['white']) < len(self.black_white['black']):
+                    self.msg.setText(self.msg.text() + '. Победили чёрные фишки.')
+                else:
+                    self.msg.setText(self.msg.text() + '. Ничья.')
+                self.msg.setText(self.msg.text() + f"\nСчёт: Белые: {len(self.black_white['white'])}; "
+                                                   f"Чёрные: {len(self.black_white['black'])}.")
+                self.msg.exec()
+
+            else:
+                self.no_steps = True
+                self.counter = self.counter + 1 % 2
+                self.predict_step()
 
     def start_game(self):
         self.clear_field()
@@ -214,19 +233,17 @@ class Example(QWidget):
                 self.black_white[black_or_white(self.counter)].append([i, j])
                 self.counter = (self.counter + 1) % 2
                 self.figures[i][j].setEnabled(False)
-                print("QPushButton {background-color: green; background-image : " +
-                      f"url({self.images[self.counter]})" + "}")
+
             self.counter = (self.counter + 1) % 2
         self.predict_step()
         a, b, c = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:]
         self.stack_of_steps["figures"].append([a, b])
         self.stack_of_steps["predicted"].append([c])
-        print(self.black_white)
 
     def step(self):
 
         self.counter = (self.counter + 1) % 2
-        print(self.sender())
+
         ind = \
             [[i, _list.index(self.sender())] for i, _list in enumerate(self.figures) if
              self.sender() in self.figures[i]][0]
@@ -240,21 +257,18 @@ class Example(QWidget):
                                                  "QPushButton:hover { background-color: yellow;" +
                                                  " background-image : url(bf.png)}")
                 self.figures[i][j].setEnabled(False)
-        print(self.sender())
-        print(self.black_white[black_or_white(self.counter)])
+
         ind = \
             [[i, _list.index(self.sender())] for i, _list in enumerate(self.figures) if
              self.sender() in self.figures[i]][0]
         that_color, opponent_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
-        #        print(color[0][1])
+
         diagonal = list(
             filter(lambda x: x[0] + x[1] == ind[0] + ind[1] or 8 - x[1] + x[0] == 8 - ind[1] + ind[0], that_color))
         x_dim = list(filter(lambda x: x[0] == ind[0], that_color))
         y_dim = list(filter(lambda x: x[1] == ind[1], that_color))
 
-        print(x_dim, y_dim)
-        print(diagonal)
         result_coordinates = []
         coordinates = []
         for ray in diagonal:
@@ -360,11 +374,9 @@ class Example(QWidget):
                                     f"url({self.images[self.counter]})" + "}")
         self.sender().setEnabled(False)
         self.predict_step()
-        print(self.stack_of_steps["figures"])
         a, b, c = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:]
         self.stack_of_steps["figures"].append([a, b])
         self.stack_of_steps["predicted"].append([c])
-        print(self.black_white)
 
 
 if __name__ == '__main__':
