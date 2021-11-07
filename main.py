@@ -10,81 +10,57 @@ def black_or_white(arg: int):
 
 
 def d(arg: list, that_color: list, opponent_color: list, figures: list):
-    res = []
+    result_coordinates, coordinates = dict(), []
     for i in range(arg[0] - 1, arg[0] + 2):
         for j in range(arg[1] - 1, arg[1] + 2):
-            posiible_step = []
+            possible_step = []
             diagonal = list(
                 filter(lambda x: (x[0] + x[1] == i + j or 8 - x[1] + x[0] == 8 - j + i), that_color))
             x_dim = list(filter(lambda x: x[0] == i, that_color))
             y_dim = list(filter(lambda x: x[1] == j, that_color))
 
-            for ray in diagonal:
-                step = []
-                x_coords, y_coords = i, j
-                if ray[0] > i:
-                    step.append(1)
-                else:
-                    step.append(-1)
-                if ray[1] > j:
-                    step.append(1)
-                else:
-                    step.append(-1)
-                counter = 0
-                l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
+            for dimension in [diagonal, x_dim, y_dim]:
+                for ray in dimension:
 
-                while [x_coords, y_coords] != list(ray) and (
-                        [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [i, j] and counter == 0)):
-                    counter += 1
-                    x_coords += step[0]
-                    y_coords += step[1]
-                if [x_coords, y_coords] != list(ray) and counter < l or l == 1:
-                    posiible_step.append(False)
-                else:
-                    posiible_step.append(True)
-            for ray in x_dim:
-                step = []
-                x_coords, y_coords = i, j
-                if ray[1] > j:
-                    step.append(1)
-                else:
-                    step.append(-1)
-                counter = 0
-                l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-                while [x_coords, y_coords] != list(ray) and (
-                        [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [i, j] and counter == 0)):
-                    counter += 1
-                    y_coords += step[0]
-                if counter < l or l == 1:
-                    posiible_step.append(False)
-                else:
-                    posiible_step.append(True)
-            for ray in y_dim:
-                step = []
-                x_coords, y_coords = i, j
-                if ray[0] > i:
-                    step.append(1)
-                else:
-                    step.append(-1)
-                counter = 0
-                x_coords += step[0]
-                l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-                while [x_coords, y_coords] != list(ray) and (
-                        [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [i, j] and counter == 0)):
-                    x_coords += step[0]
-                    counter += 1
+                    step = []
+                    x_coords, y_coords = i, j
+                    if ray[0] > i:
+                        step.append(1)
+                    elif ray[0] == i:
+                        step.append(0)
+                    else:
+                        step.append(-1)
+                    if ray[1] > j:
+                        step.append(1)
+                    elif ray[1] == j:
+                        step.append(0)
+                    else:
+                        step.append(-1)
+                    steps = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
+                    while [x_coords, y_coords] != list(ray) and (
+                            [x_coords, y_coords] in opponent_color or (
+                            [x_coords, y_coords] == [i, j] and len(coordinates) == 0)):
+                        coordinates.append([x_coords, y_coords])
+                        x_coords += step[0]
+                        y_coords += step[1]
+                    if [x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 1:
+                        possible_step.append(False)
+                    else:
+                        possible_step.append(True)
+                    if possible_step[-1]:
+                        if (not ([x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 0)) and \
+                                0 <= coordinates[0][0] < 8 and 0 <= coordinates[0][1] < 8:
 
-                if counter < l or l == 0:
-                    posiible_step.append(False)
-                else:
-                    posiible_step.append(True)
-            if len(diagonal) + len(x_dim) + len(y_dim) > 0 and len(posiible_step) > 0 and True in posiible_step and i >= 0 and j >= 0:
-                res.append([i, j])
+                            if not (coordinates[0] in that_color or coordinates[0] in opponent_color or [x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 0):
+                                available_step = tuple(coordinates[0])
+                                if available_step in result_coordinates:
+                                    result_coordinates[available_step].append(coordinates[1:])
+                                else:
+                                    result_coordinates[available_step] = coordinates[1:]
+                    coordinates = []
 
 
-    delimeter = lambda x: [x[0], x[1]] not in that_color and [x[0], x[1]] not in opponent_color
-    return list(
-        filter(delimeter, res))
+    return result_coordinates
 
 
 class Example(QWidget):
@@ -95,6 +71,14 @@ class Example(QWidget):
     def initUI(self):
         self.setGeometry(300, 300, 400, 600)
         self.setWindowTitle('Реверси')
+        main_layout = QVBoxLayout()
+        grid_layout = QGridLayout()
+        buttons_layout = QHBoxLayout()
+        main_layout.addLayout(buttons_layout)
+        main_layout.addLayout(grid_layout)
+
+        self.setLayout(main_layout)
+        grid_layout.addLayout(buttons_layout, 0, 0)
         self.new_game = QPushButton('Новая игра', self)
         self.settings = QPushButton('Настройки', self)
         self.new_game.clicked.connect(self.reset_game)
@@ -117,7 +101,18 @@ class Example(QWidget):
         self.msg = QMessageBox()
         self.msg.setWindowTitle("Уведомдение")
         self.msg.setText("Игра окончена")
+        self.styles = {"default": "QPushButton {background-color: green}",
+                       "white_clicked": "QPushButton {background-color: green; background-image : url(wf.png)}",
+                       "black_clicked": "QPushButton {background-color: green; background-image : url(bf.png)}",
+                       "white_available": "QPushButton {background-color: yellow } "
+                                          "QPushButton:hover {background-image : url(wf.png)}",
+                       "black_available": "QPushButton {background-color: yellow } "
+                                          "QPushButton:hover {background-image : url(bf.png)}"
+                       }
         self.msg.setIcon(QMessageBox.Warning)
+        buttons_layout.addWidget(self.new_game)
+        buttons_layout.addWidget(self.settings)
+        buttons_layout.addWidget(self.last_step_button)
 
         for i in range(8):
             a = []
@@ -125,68 +120,61 @@ class Example(QWidget):
                 # qp.drawRect(50 * i, 50 * j, 50, 50)
                 self.btn3 = QPushButton(self)
                 self.btn3.setText('')
-                self.btn3.resize(50, 50)
+                self.btn3.resize(200, 200)
                 self.btn3.move(50 * j, 200 + 50 * i)
-                self.btn3.setStyleSheet("QPushButton { background-color: green }"
-                                        "QPushButton:hover { background-color: yellow; background-image : url(bf.png)}")
+                self.btn3.setStyleSheet(self.styles["default"])
+                policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
+                policy.setHeightForWidth(True)
+                self.btn3.setMinimumSize(50, 50)
+                self.btn3.heightForWidth(self.btn3.height())
+                policy.setWidthForHeight(True)
+                self.btn3.setSizePolicy(policy)
                 a.append(self.btn3)
 
                 self.btn3.setEnabled(False)
                 self.btn3.clicked.connect(self.step)
-
+                self.btn3.y = i
+                self.btn3.x = j
+                grid_layout.addWidget(self.btn3, i, j, 1, 1)
 
             self.figures.append(a)
 
+    def render_field(self):
+        for i in range(8):
+
+            for j in range(8):
+                self.figures[i][j].setStyleSheet(self.styles["default"])
+
+                self.figures[i][j].setEnabled(False)
+        for color in self.black_white.keys():
+            for x, y in self.black_white[color]:
+                self.figures[x][y].setStyleSheet(self.styles[color + "_clicked"])
+        for x, y in self.predicted:
+            try:
+                self.figures[x][y].setStyleSheet(self.styles[black_or_white(self.counter + 1 % 2) + "_available"])
+                self.figures[x][y].setEnabled(True)
+            except IndexError:
+                print('ooops')
     def previous_step(self):
         if len(self.stack_of_steps['figures']) > 1:
             self.stack_of_steps["figures"].pop()
             self.stack_of_steps["predicted"].pop()
 
         self.counter = (self.counter - 1) % 2
-        c = 0
-        self.clear_field()
 
         self.predicted = self.stack_of_steps["predicted"][-1][0]
         self.black_white = self.stack_of_steps["figures"][-1][0]
-        self.black_white = {'white': self.stack_of_steps["figures"][-1][0][:], 'black': self.stack_of_steps["figures"][-1][1][:]}
-        for i in self.stack_of_steps["figures"][-1]:
-
-            for y, x in i:
-                self.figures[y][x].setStyleSheet \
-                    ("QPushButton {background-color: green; background-image : " +
-                     f"url({self.images[c]})" + "}")
-                self.figures[y][x].setEnabled(False)
-            c += 1
-        for i in self.stack_of_steps["predicted"][-1]:
-            for y, x in i:
-                self.figures[y][x].setStyleSheet("QPushButton { background-color: yellow }"
-                                                 "QPushButton:hover {background-image : " +
-                                                 f"url({self.images[(self.counter + 1) % 2]})" + "}")
-                self.figures[y][x].setEnabled(True)
+        self.black_white = {'white': self.stack_of_steps["figures"][-1][0][:],
+                            'black': self.stack_of_steps["figures"][-1][1][:]}
+        self.render_field()
 
     def reset_game(self):
         self.predicted = []
         self.stack_of_steps = {"predicted": [], "figures": []}
         self.black_white = {'white': [], 'black': []}
-        self.clear_field()
+
         self.start_game()
-
-    def clear_field(self):
-
-        for i in range(8):
-
-            for j in range(8):
-                self.figures[i][j].setStyleSheet("QPushButton { background-color: green }"
-                                                 "QPushButton:hover { background-color: yellow; background-image : "
-                                                 "url(bf.png)}")
-
-                self.figures[i][j].setEnabled(False)
-
-
-
-
-
 
     def predict_step(self):
         self.predicted = []
@@ -194,42 +182,40 @@ class Example(QWidget):
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
 
         for enemy in opponent_color:
+            print(list(set([1,2,3, 3, 3, 3])))
             try:
-
-                for i, j in d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures):
-                    self.figures[i][j].setStyleSheet("QPushButton { background-color: yellow }"
-                                                     "QPushButton:hover {background-image : " +
-                                                     f"url({self.images[(self.counter + 1) % 2]})" + "}")
-                    self.predicted.append([i, j])
+                print(d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures), '\n\n')
+                for i, j in d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures).keys():
+                    self.predicted.append(list([i, j]))
                     self.figures[i][j].setEnabled(True)
+
+                print(self.predicted)
 
             except IndexError:
                 print('oops')
         if len(self.predicted) == 0:
             if self.no_steps:
-                self.no_steps = False
                 if len(self.black_white['white']) > len(self.black_white['black']):
-                    self.msg.setText(self.msg.text() + '. Победили белые фишки.')
+                    self.msg.setText('Результат: ' + '. Победили белые фишки.')
                 elif len(self.black_white['white']) < len(self.black_white['black']):
-                    self.msg.setText(self.msg.text() + '. Победили чёрные фишки.')
+                    self.msg.setText('Результат: ' + '. Победили чёрные фишки.')
                 else:
-                    self.msg.setText(self.msg.text() + '. Ничья.')
-                self.msg.setText(self.msg.text() + f"\nСчёт: Белые: {len(self.black_white['white'])}; "
-                                                   f"Чёрные: {len(self.black_white['black'])}.")
+                    self.msg.setText('Результат: ' + '. Ничья.')
+                self.msg.setText(self.msg.text() + f"\nСчёт: Белые:{len(self.black_white['white'])}; "
+                                                   f"Чёрные:{len(self.black_white['black'])}")
                 self.msg.exec()
 
             else:
                 self.no_steps = True
                 self.counter = self.counter + 1 % 2
                 self.predict_step()
+        else:
+            self.no_steps = False
 
     def start_game(self):
-        self.clear_field()
         self.counter = 0
         for i in range(3, 5):
             for j in range(3, 5):
-                self.figures[i][j].setStyleSheet("QPushButton {background-color: green; background-image : " +
-                                                 f"url({self.images[self.counter]})" + "}")
                 self.black_white[black_or_white(self.counter)].append([i, j])
                 self.counter = (self.counter + 1) % 2
                 self.figures[i][j].setEnabled(False)
@@ -239,144 +225,58 @@ class Example(QWidget):
         a, b, c = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:]
         self.stack_of_steps["figures"].append([a, b])
         self.stack_of_steps["predicted"].append([c])
+        self.render_field()
 
     def step(self):
-
         self.counter = (self.counter + 1) % 2
-
-        ind = \
-            [[i, _list.index(self.sender())] for i, _list in enumerate(self.figures) if
-             self.sender() in self.figures[i]][0]
-        if ind in self.predicted:
-            self.predicted.remove(ind)
-        for i, j in self.predicted:
-            if self.figures[i][j].styleSheet() == "QPushButton { background-color: yellow }" + \
-                    "QPushButton:hover {background-image : " + \
-                    f"url({self.images[self.counter]})" + "}":
-                self.figures[i][j].setStyleSheet("QPushButton { background-color: green }"
-                                                 "QPushButton:hover { background-color: yellow;" +
-                                                 " background-image : url(bf.png)}")
-                self.figures[i][j].setEnabled(False)
-
-        ind = \
-            [[i, _list.index(self.sender())] for i, _list in enumerate(self.figures) if
-             self.sender() in self.figures[i]][0]
+        ind = [self.sender().y, self.sender().x]
         that_color, opponent_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
-
         diagonal = list(
             filter(lambda x: x[0] + x[1] == ind[0] + ind[1] or 8 - x[1] + x[0] == 8 - ind[1] + ind[0], that_color))
         x_dim = list(filter(lambda x: x[0] == ind[0], that_color))
         y_dim = list(filter(lambda x: x[1] == ind[1], that_color))
-
         result_coordinates = []
         coordinates = []
-        for ray in diagonal:
-            step = []
-            x_coords, y_coords = ind
-            if ray[0] > ind[0]:
-                step.append(1)
-            elif ray[0] == ind[0]:
-                step.append(0)
-            else:
-                step.append(-1)
-            if ray[1] > ind[1]:
-                step.append(1)
-            elif ray[1] == ind[1]:
-                step.append(0)
-            else:
-                step.append(-1)
-
-
-            l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-            while [x_coords, y_coords] != list(ray) and (
-                    [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [ind[0], ind[1]] and len(coordinates) == 0)):
-                coordinates.append([x_coords, y_coords])
-                x_coords += step[0]
-                y_coords += step[1]
-            if not ([x_coords, y_coords] != list(ray) and len(coordinates) < l or l == 0):
-                result_coordinates.append(coordinates)
-            coordinates = []
-        for ray in x_dim:
-            step = []
-            x_coords, y_coords = ind
-            if ray[0] > ind[0]:
-                step.append(1)
-            elif ray[0] == ind[0]:
-                step.append(0)
-            else:
-                step.append(-1)
-            if ray[1] > ind[1]:
-                step.append(1)
-            elif ray[1] == ind[1]:
-                step.append(0)
-            else:
-                step.append(-1)
-            l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-            while [x_coords, y_coords] != list(ray) and (
-                    [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [ind[0], ind[1]] and len(coordinates) == 0)):
-                coordinates.append([x_coords, y_coords])
-                x_coords += step[0]
-                y_coords += step[1]
-#                self.figures[x_coords][y_coords].setStyleSheet \
-#                    ("QPushButton {background-color: green; background-image : " +
-#                     f"url({self.images[self.counter]})" + "}")
-#                if [x_coords, y_coords] not in that_color and [x_coords, y_coords] != ind:
-#                    self.black_white[black_or_white(self.counter)].append([x_coords, y_coords])
-#                    if [x_coords, y_coords] in self.black_white[black_or_white((self.counter + 1) % 2)]:
-#                        self.black_white[black_or_white((self.counter + 1) % 2)].remove([x_coords, y_coords])
-
-            if not([x_coords, y_coords] != list(ray) and len(coordinates) < l or l == 0):
-                result_coordinates.append(coordinates)
-            coordinates = []
-
-        for ray in y_dim:
-            step = []
-            x_coords, y_coords = ind
-            if ray[0] > ind[0]:
-                step.append(1)
-            elif ray[0] == ind[0]:
-                step.append(0)
-            else:
-                step.append(-1)
-            if ray[1] > ind[1]:
-                step.append(1)
-            elif ray[1] == ind[1]:
-                step.append(0)
-            else:
-                step.append(-1)
-            l = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-            while [x_coords, y_coords] != list(ray) and (
-                    [x_coords, y_coords] in opponent_color or ([x_coords, y_coords] == [ind[0], ind[1]] and len(coordinates) == 0)):
-                coordinates.append((x_coords, y_coords))
-                x_coords += step[0]
-                y_coords += step[1]
-            if not([x_coords, y_coords] != list(ray) and len(coordinates) < l or l == 0):
-                result_coordinates.append(set(coordinates))
-            coordinates = []
+        for dimension in [diagonal, x_dim, y_dim]:
+            for ray in dimension:
+                step = []
+                x_coords, y_coords = ind
+                if ray[0] > ind[0]:
+                    step.append(1)
+                elif ray[0] == ind[0]:
+                    step.append(0)
+                else:
+                    step.append(-1)
+                if ray[1] > ind[1]:
+                    step.append(1)
+                elif ray[1] == ind[1]:
+                    step.append(0)
+                else:
+                    step.append(-1)
+                steps = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
+                while [x_coords, y_coords] != list(ray) and (
+                        [x_coords, y_coords] in opponent_color or (
+                        [x_coords, y_coords] == [ind[0], ind[1]] and len(coordinates) == 0)):
+                    coordinates.append([x_coords, y_coords])
+                    x_coords += step[0]
+                    y_coords += step[1]
+                if not ([x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 0):
+                    result_coordinates.append(coordinates)
+                coordinates = []
         for i in result_coordinates:
             for y, x in i:
-                self.figures[y][x].setStyleSheet \
-                    ("QPushButton {background-color: green; background-image : " +
-                     f"url({self.images[self.counter]})" + "}")
-                self.figures[y][x].setEnabled(False)
                 if [y, x] not in that_color and [y, x] != ind:
                     self.black_white[black_or_white(self.counter)].append([y, x])
                 if [y, x] in opponent_color:
                     self.black_white[black_or_white((self.counter + 1) % 2)].remove([y, x])
-
-
         if ind not in self.black_white[black_or_white(self.counter)]:
             self.black_white[black_or_white(self.counter)].append(ind)
-        # i = n - 4,
-
-        self.sender().setStyleSheet("QPushButton {background-color: green; background-image : " +
-                                    f"url({self.images[self.counter]})" + "}")
-        self.sender().setEnabled(False)
         self.predict_step()
         a, b, c = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:]
         self.stack_of_steps["figures"].append([a, b])
         self.stack_of_steps["predicted"].append([c])
+        self.render_field()
 
 
 if __name__ == '__main__':
