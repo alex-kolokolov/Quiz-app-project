@@ -51,14 +51,15 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
                         if (not ([x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 0)) and \
                                 0 <= coordinates[0][0] < 8 and 0 <= coordinates[0][1] < 8:
 
-                            if not (coordinates[0] in that_color or coordinates[0] in opponent_color or [x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 0):
+                            if not (coordinates[0] in that_color or coordinates[0] in opponent_color or [x_coords,
+                                                                                                         y_coords] != list(
+                                    ray) and len(coordinates) < steps or steps == 0):
                                 available_step = tuple(coordinates[0])
                                 if available_step in result_coordinates:
-                                    result_coordinates[available_step].append(coordinates[1:])
+                                    result_coordinates[available_step] += coordinates[1:]
                                 else:
                                     result_coordinates[available_step] = coordinates[1:]
                     coordinates = []
-
 
     return result_coordinates
 
@@ -96,23 +97,25 @@ class Example(QWidget):
         self.images = ['wf.png', 'bf.png']
         self.figures = []
         self.predicted = []
-        self.stack_of_steps = {"predicted": [], "figures": []}
+        self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
+        #       print(self.stack_of_steps["available_steps"])
         self.no_steps = False
         self.msg = QMessageBox()
         self.msg.setWindowTitle("Уведомдение")
         self.msg.setText("Игра окончена")
         self.styles = {"default": "QPushButton {background-color: green}",
-                       "white_clicked": "QPushButton {background-color: green; background-image : url(wf.png)}",
-                       "black_clicked": "QPushButton {background-color: green; background-image : url(bf.png)}",
+                       "white_clicked": "QPushButton {background-color: green; image : url(wf.png)}",
+                       "black_clicked": "QPushButton {background-color: green; image : url(bf.png)}",
                        "white_available": "QPushButton {background-color: yellow } "
-                                          "QPushButton:hover {background-image : url(wf.png)}",
+                                          "QPushButton:hover {image : url(wf.png)}",
                        "black_available": "QPushButton {background-color: yellow } "
-                                          "QPushButton:hover {background-image : url(bf.png)}"
+                                          "QPushButton:hover {image : url(bf.png)}"
                        }
         self.msg.setIcon(QMessageBox.Warning)
         buttons_layout.addWidget(self.new_game)
         buttons_layout.addWidget(self.settings)
         buttons_layout.addWidget(self.last_step_button)
+        self.available_steps = dict()
 
         for i in range(8):
             a = []
@@ -120,13 +123,11 @@ class Example(QWidget):
                 # qp.drawRect(50 * i, 50 * j, 50, 50)
                 self.btn3 = QPushButton(self)
                 self.btn3.setText('')
-                self.btn3.resize(200, 200)
-                self.btn3.move(50 * j, 200 + 50 * i)
                 self.btn3.setStyleSheet(self.styles["default"])
                 policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
                 policy.setHeightForWidth(True)
-                self.btn3.setMinimumSize(50, 50)
+                self.btn3.setMinimumSize(80, 80)
                 self.btn3.heightForWidth(self.btn3.height())
                 policy.setWidthForHeight(True)
                 self.btn3.setSizePolicy(policy)
@@ -156,40 +157,51 @@ class Example(QWidget):
                 self.figures[x][y].setEnabled(True)
             except IndexError:
                 print('ooops')
+
     def previous_step(self):
         if len(self.stack_of_steps['figures']) > 1:
             self.stack_of_steps["figures"].pop()
             self.stack_of_steps["predicted"].pop()
+            self.stack_of_steps["available_steps"].pop()
+            print(self.stack_of_steps["available_steps"])
 
-        self.counter = (self.counter - 1) % 2
+            self.counter = (self.counter - 1) % 2
 
-        self.predicted = self.stack_of_steps["predicted"][-1][0]
-        self.black_white = self.stack_of_steps["figures"][-1][0]
-        self.black_white = {'white': self.stack_of_steps["figures"][-1][0][:],
-                            'black': self.stack_of_steps["figures"][-1][1][:]}
-        self.render_field()
+            self.predicted = self.stack_of_steps["predicted"][-1][0]
+            self.black_white = self.stack_of_steps["figures"][-1][0]
+            self.black_white = {'white': self.stack_of_steps["figures"][-1][0][:],
+                                'black': self.stack_of_steps["figures"][-1][1][:]}
+            self.available_steps = self.stack_of_steps["available_steps"][-1]
+            self.render_field()
+        else:
+            self.reset_game()
 
     def reset_game(self):
         self.predicted = []
-        self.stack_of_steps = {"predicted": [], "figures": []}
+        self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
         self.black_white = {'white': [], 'black': []}
 
         self.start_game()
 
-    def predict_step(self):
+    def predict_step(self, enemy=None):
         self.predicted = []
+        self.available_steps = dict()
         opponent_color, that_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
 
         for enemy in opponent_color:
-            print(list(set([1,2,3, 3, 3, 3])))
             try:
-                print(d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures), '\n\n')
+                a = d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures)
                 for i, j in d(enemy, that_color=that_color, opponent_color=opponent_color, figures=self.figures).keys():
                     self.predicted.append(list([i, j]))
                     self.figures[i][j].setEnabled(True)
-
-                print(self.predicted)
+                    if (i, j) in self.available_steps:
+                        #                        print(a[(i, j)])
+                        for y, x in a[(i, j)]:
+                            if [[y, x] not in self.available_steps[(i, j)]]:
+                                self.available_steps[(i, j)] += a[(i, j)]
+                    else:
+                        self.available_steps[(i, j)] = a[(i, j)]
 
             except IndexError:
                 print('oops')
@@ -212,6 +224,8 @@ class Example(QWidget):
         else:
             self.no_steps = False
 
+    #        print(self.available_steps)
+
     def start_game(self):
         self.counter = 0
         for i in range(3, 5):
@@ -222,9 +236,11 @@ class Example(QWidget):
 
             self.counter = (self.counter + 1) % 2
         self.predict_step()
-        a, b, c = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:]
+        a, b, c, d = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:], dict(
+            self.available_steps)
         self.stack_of_steps["figures"].append([a, b])
         self.stack_of_steps["predicted"].append([c])
+        self.stack_of_steps["available_steps"].append(d)
         self.render_field()
 
     def step(self):
@@ -232,50 +248,21 @@ class Example(QWidget):
         ind = [self.sender().y, self.sender().x]
         that_color, opponent_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
-        diagonal = list(
-            filter(lambda x: x[0] + x[1] == ind[0] + ind[1] or 8 - x[1] + x[0] == 8 - ind[1] + ind[0], that_color))
-        x_dim = list(filter(lambda x: x[0] == ind[0], that_color))
-        y_dim = list(filter(lambda x: x[1] == ind[1], that_color))
-        result_coordinates = []
-        coordinates = []
-        for dimension in [diagonal, x_dim, y_dim]:
-            for ray in dimension:
-                step = []
-                x_coords, y_coords = ind
-                if ray[0] > ind[0]:
-                    step.append(1)
-                elif ray[0] == ind[0]:
-                    step.append(0)
-                else:
-                    step.append(-1)
-                if ray[1] > ind[1]:
-                    step.append(1)
-                elif ray[1] == ind[1]:
-                    step.append(0)
-                else:
-                    step.append(-1)
-                steps = int(math.sqrt((abs(x_coords - ray[0]) ** 2 + abs(y_coords - ray[1]) ** 2)))
-                while [x_coords, y_coords] != list(ray) and (
-                        [x_coords, y_coords] in opponent_color or (
-                        [x_coords, y_coords] == [ind[0], ind[1]] and len(coordinates) == 0)):
-                    coordinates.append([x_coords, y_coords])
-                    x_coords += step[0]
-                    y_coords += step[1]
-                if not ([x_coords, y_coords] != list(ray) and len(coordinates) < steps or steps == 0):
-                    result_coordinates.append(coordinates)
-                coordinates = []
-        for i in result_coordinates:
-            for y, x in i:
-                if [y, x] not in that_color and [y, x] != ind:
-                    self.black_white[black_or_white(self.counter)].append([y, x])
-                if [y, x] in opponent_color:
-                    self.black_white[black_or_white((self.counter + 1) % 2)].remove([y, x])
+        #       print(self.available_steps[(ind[0], ind[1])])
+        for y, x in self.available_steps[(ind[0], ind[1])]:
+
+            if [y, x] not in that_color and [y, x] != ind:
+                self.black_white[black_or_white(self.counter)].append([y, x])
+            if [y, x] in opponent_color:
+                self.black_white[black_or_white((self.counter + 1) % 2)].remove([y, x])
         if ind not in self.black_white[black_or_white(self.counter)]:
             self.black_white[black_or_white(self.counter)].append(ind)
         self.predict_step()
-        a, b, c = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:]
+        a, b, c, d = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:], dict(
+            self.available_steps)
         self.stack_of_steps["figures"].append([a, b])
         self.stack_of_steps["predicted"].append([c])
+        self.stack_of_steps["available_steps"].append(d)
         self.render_field()
 
 
