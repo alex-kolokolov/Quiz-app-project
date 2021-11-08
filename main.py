@@ -87,13 +87,11 @@ class Example(QWidget):
         self.new_game.resize(150, 50)
         self.settings.move(250, 0)
         self.settings.resize(150, 50)
-        self.last_step_button = QPushButton('☚', self)
+        self.last_step_button = QPushButton('⮌', self)
         self.last_step_button.resize(50, 50)
         self.last_step_button.clicked.connect(self.previous_step)
         self.last_step_button.move(100, 130)
         self.counter = 0
-        self.btn4 = QPushButton('123', self)
-        self.btn4.move(250, 205)
         self.images = ['wf.png', 'bf.png']
         self.figures = []
         self.predicted = []
