@@ -1,9 +1,13 @@
 import sys
 import math
+import time
+import datetime
+import sqlite3
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from ai import RandomBot
+from results import Results
 
 
 def black_or_white(arg: int):
@@ -79,13 +83,14 @@ class Example(QWidget):
         buttons_layout = QHBoxLayout()
         main_layout.addLayout(buttons_layout)
         main_layout.addLayout(grid_layout)
-
+        self.results = Results()
         self.setLayout(main_layout)
         grid_layout.addLayout(buttons_layout, 0, 0)
         self.last_games = QPushButton('Результаты игр', self)
         self.new_game = QPushButton('Новая игра', self)
         self.settings = QPushButton('Настройки', self)
         self.new_game.clicked.connect(self.mode_select)
+        self.last_games.clicked.connect(self.show_results)
         self.black_white = {'white': [], 'black': []}
         self.new_game.resize(150, 50)
         self.settings.move(250, 0)
@@ -145,6 +150,10 @@ class Example(QWidget):
 
             self.figures.append(a)
 
+    def show_results(self):
+        self.results = Results()
+        self.results.show()
+
     def mode_select(self):
         self.game_mode.show()
         self.with_ai = self.game_mode.is_with_ai
@@ -160,6 +169,7 @@ class Example(QWidget):
         for color in self.black_white.keys():
             for x, y in self.black_white[color]:
                 self.figures[x][y].setStyleSheet(self.styles[color + "_clicked"])
+        print(self.predicted)
         for x, y in self.predicted:
             try:
                 self.figures[x][y].setStyleSheet(self.styles[black_or_white(self.counter + 1 % 2) + "_available"])
@@ -173,8 +183,8 @@ class Example(QWidget):
             self.stack_of_steps["predicted"].pop()
             self.stack_of_steps["available_steps"].pop()
             print(self.stack_of_steps["available_steps"])
-
-            self.counter = (self.counter - 1) % 2
+            if not self.game_mode.is_with_ai:
+                self.counter = (self.counter - 1) % 2
 
             self.predicted = self.stack_of_steps["predicted"][-1][0]
             self.black_white = self.stack_of_steps["figures"][-1][0]
@@ -215,6 +225,7 @@ class Example(QWidget):
             except IndexError:
                 print('oops')
         if len(self.predicted) == 0:
+            end_time = datetime.datetime.now()
             if self.no_steps:
                 if len(self.black_white['white']) > len(self.black_white['black']):
                     self.msg.setText('Результат: ' + '. Победили белые фишки.')
@@ -224,7 +235,13 @@ class Example(QWidget):
                     self.msg.setText('Результат: ' + '. Ничья.')
                 self.msg.setText(self.msg.text() + f"\nСчёт: Белые:{len(self.black_white['white'])}; "
                                                    f"Чёрные:{len(self.black_white['black'])}")
+                conn = sqlite3.connect('result.db')
+                with conn:
+                    c = conn.cursor()
+                    c.execute('''INSERT INTO Games(time, score_1, score_2) VALUES(?, ?, ?)''',
+                              (end_time, len(self.black_white['white']), len(self.black_white['black'])))
                 self.msg.exec()
+
 
             else:
                 self.no_steps = True
@@ -260,8 +277,15 @@ class Example(QWidget):
             self.figures[res[0]][res[1]].click()
 
     def step(self):
+
         self.counter = (self.counter + 1) % 2
         ind = [self.sender().y, self.sender().x]
+        if ind not in self.black_white[black_or_white(self.counter)]:
+            self.black_white[black_or_white(self.counter)].append(ind)
+        self.predicted = []
+        self.render_field()
+        self.figures[ind[0]][ind[1]].setStyleSheet(self.styles["default"])
+        time.sleep(.3)
         that_color, opponent_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
         #       print(self.available_steps[(ind[0], ind[1])])
@@ -274,14 +298,15 @@ class Example(QWidget):
         if ind not in self.black_white[black_or_white(self.counter)]:
             self.black_white[black_or_white(self.counter)].append(ind)
         self.predict_step()
-        a, b, c, d = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:], dict(
-            self.available_steps)
-        self.stack_of_steps["figures"].append([a, b])
-        self.stack_of_steps["predicted"].append([c])
-        self.stack_of_steps["available_steps"].append(d)
         self.render_field()
         if self.game_mode.is_with_ai and self.counter % 2 == 1:
             self.step_ai()
+        else:
+            a, b, c, d = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:], dict(
+                self.available_steps)
+            self.stack_of_steps["figures"].append([a, b])
+            self.stack_of_steps["predicted"].append([c])
+            self.stack_of_steps["available_steps"].append(d)
 
 
 class GameMode(QWidget):
