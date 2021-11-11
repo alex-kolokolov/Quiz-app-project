@@ -3,6 +3,7 @@ import math
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+from ai import RandomBot
 
 
 def black_or_white(arg: int):
@@ -53,7 +54,7 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
 
                             if not (coordinates[0] in that_color or coordinates[0] in opponent_color or [x_coords,
                                                                                                          y_coords] != list(
-                                    ray) and len(coordinates) < steps or steps == 0):
+                                ray) and len(coordinates) < steps or steps == 0):
                                 available_step = tuple(coordinates[0])
                                 if available_step in result_coordinates:
                                     result_coordinates[available_step] += coordinates[1:]
@@ -74,15 +75,17 @@ class Example(QWidget):
         self.setWindowTitle('Реверси')
         main_layout = QVBoxLayout()
         grid_layout = QGridLayout()
+        self.game_mode = GameMode()
         buttons_layout = QHBoxLayout()
         main_layout.addLayout(buttons_layout)
         main_layout.addLayout(grid_layout)
 
         self.setLayout(main_layout)
         grid_layout.addLayout(buttons_layout, 0, 0)
+        self.last_games = QPushButton('Результаты игр', self)
         self.new_game = QPushButton('Новая игра', self)
         self.settings = QPushButton('Настройки', self)
-        self.new_game.clicked.connect(self.reset_game)
+        self.new_game.clicked.connect(self.mode_select)
         self.black_white = {'white': [], 'black': []}
         self.new_game.resize(150, 50)
         self.settings.move(250, 0)
@@ -98,6 +101,7 @@ class Example(QWidget):
         self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
         #       print(self.stack_of_steps["available_steps"])
         self.no_steps = False
+        self.with_ai = False
         self.msg = QMessageBox()
         self.msg.setWindowTitle("Уведомдение")
         self.msg.setText("Игра окончена")
@@ -113,7 +117,9 @@ class Example(QWidget):
         buttons_layout.addWidget(self.new_game)
         buttons_layout.addWidget(self.settings)
         buttons_layout.addWidget(self.last_step_button)
+        buttons_layout.addWidget(self.last_games)
         self.available_steps = dict()
+        self.ai = RandomBot()
 
         for i in range(8):
             a = []
@@ -138,6 +144,11 @@ class Example(QWidget):
                 grid_layout.addWidget(self.btn3, i, j, 1, 1)
 
             self.figures.append(a)
+
+    def mode_select(self):
+        self.game_mode.show()
+        self.with_ai = self.game_mode.is_with_ai
+        self.reset_game()
 
     def render_field(self):
         for i in range(8):
@@ -241,6 +252,13 @@ class Example(QWidget):
         self.stack_of_steps["available_steps"].append(d)
         self.render_field()
 
+    def step_ai(self):
+        self.ai.get_values(self.predicted, self.available_steps)
+        res = self.ai.calculate()
+        print(res)
+        if len(self.predicted) > 0:
+            self.figures[res[0]][res[1]].click()
+
     def step(self):
         self.counter = (self.counter + 1) % 2
         ind = [self.sender().y, self.sender().x]
@@ -262,6 +280,37 @@ class Example(QWidget):
         self.stack_of_steps["predicted"].append([c])
         self.stack_of_steps["available_steps"].append(d)
         self.render_field()
+        if self.game_mode.is_with_ai and self.counter % 2 == 1:
+            self.step_ai()
+
+
+class GameMode(QWidget):
+    def __init__(self, *args):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setGeometry(300, 300, 300, 300)
+        self.is_with_ai = False
+        self.setWindowTitle('Выбор режима')
+
+        self.ui_layout = QVBoxLayout()
+        self.setLayout(self.ui_layout)
+
+        self.two_players = QPushButton('Два игрока', self)
+        self.ai_player = QPushButton('Играть с ии', self)
+        self.ai_player.clicked.connect(self.with_ai_mode)
+        self.two_players.clicked.connect(self.two_players_mode)
+        self.ui_layout.addWidget(self.two_players)
+        self.ui_layout.addWidget(self.ai_player)
+
+    def two_players_mode(self):
+        self.is_with_ai = False
+        self.close()
+
+    def with_ai_mode(self):
+        self.is_with_ai = True
+        self.close()
 
 
 if __name__ == '__main__':
