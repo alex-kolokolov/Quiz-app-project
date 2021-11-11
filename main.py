@@ -1,13 +1,13 @@
 import sys
 import math
 import time
-import datetime
 import sqlite3
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from ai import RandomBot
 from results import Results
+from settings import Settings
 
 
 def black_or_white(arg: int):
@@ -91,6 +91,7 @@ class Example(QWidget):
         self.settings = QPushButton('Настройки', self)
         self.new_game.clicked.connect(self.mode_select)
         self.last_games.clicked.connect(self.show_results)
+        self.settings.clicked.connect(self.settings_method)
         self.black_white = {'white': [], 'black': []}
         self.new_game.resize(150, 50)
         self.settings.move(250, 0)
@@ -150,6 +151,10 @@ class Example(QWidget):
 
             self.figures.append(a)
 
+    def settings_method(self):
+        self.settings_object = Settings()
+        self.settings_object.show()
+
     def show_results(self):
         self.results = Results()
         self.results.show()
@@ -199,7 +204,6 @@ class Example(QWidget):
         self.predicted = []
         self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
         self.black_white = {'white': [], 'black': []}
-
         self.start_game()
 
     def predict_step(self, enemy=None):
@@ -225,21 +229,24 @@ class Example(QWidget):
             except IndexError:
                 print('oops')
         if len(self.predicted) == 0:
-            end_time = datetime.datetime.now()
             if self.no_steps:
                 if len(self.black_white['white']) > len(self.black_white['black']):
                     self.msg.setText('Результат: ' + '. Победили белые фишки.')
+                    winner = "Белые"
                 elif len(self.black_white['white']) < len(self.black_white['black']):
                     self.msg.setText('Результат: ' + '. Победили чёрные фишки.')
+                    winner = "Чёрные"
                 else:
                     self.msg.setText('Результат: ' + '. Ничья.')
+                    winner = "Ничья"
                 self.msg.setText(self.msg.text() + f"\nСчёт: Белые:{len(self.black_white['white'])}; "
                                                    f"Чёрные:{len(self.black_white['black'])}")
                 conn = sqlite3.connect('result.db')
+
                 with conn:
                     c = conn.cursor()
-                    c.execute('''INSERT INTO Games(time, score_1, score_2) VALUES(?, ?, ?)''',
-                              (end_time, len(self.black_white['white']), len(self.black_white['black'])))
+                    c.execute('''INSERT INTO Games(score_1, score_2, winner) VALUES(?, ?, ?)''',
+                              (len(self.black_white['white']), len(self.black_white['black']), winner))
                 self.msg.exec()
 
 

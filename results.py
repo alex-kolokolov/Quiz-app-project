@@ -21,12 +21,13 @@ class Results(QMainWindow):
         table = QTableWidget(self)
         table.setColumnCount(4)
         table.setRowCount(1)
-        table.setHorizontalHeaderLabels(["Дата", "Дата", "Счёт первого игрока", "Счёт второго игрока"])
+        table.setHorizontalHeaderLabels(["Номер", "Счёт чёрных", "Счёт белых", "Победитель"])
 
         table.resizeColumnsToContents()
         grid_layout.addWidget(table, 0, 0)
         self.connection = sqlite3.connect("result.db")
         c = self.connection.cursor()
+
 
         res = self.connection.cursor().execute("SELECT * FROM Games").fetchall()
         print(res)
