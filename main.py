@@ -1,10 +1,12 @@
 import sys
+import os
 import math
 import time
 import sqlite3
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+from PyQt5 import QtMultimedia
 from ai import RandomBot
 from results import Results
 from settings import Settings
@@ -69,13 +71,23 @@ def d(arg: list, that_color: list, opponent_color: list, figures: list):
     return result_coordinates
 
 
-class Example(QWidget):
+class Game(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
 
     def initUI(self):
-        self.setGeometry(300, 300, 400, 600)
+        self.load_mp3('media/z.wav')
+        if not os.path.exists('settings.txt'):
+            f = open('settings.txt', mode='w')
+            f.write('255 255 255\n')
+            f.write('0 0 0\n')
+            f.write('800x800')
+            f.close()
+        with open('settings.txt', mode='r') as f:
+            res = [int(j) for j in [i.rstrip() for i in f.readlines()][2].split('x')]
+            self.setFixedSize(res[0], res[1])
+        self.setGeometry(300, 300, 400, 400)
         self.setWindowTitle('Реверси')
         main_layout = QVBoxLayout()
         grid_layout = QGridLayout()
@@ -101,23 +113,22 @@ class Example(QWidget):
         self.last_step_button.clicked.connect(self.previous_step)
         self.last_step_button.move(100, 130)
         self.counter = 0
-        self.images = ['wf.png', 'bf.png']
+        self.images = ['media/wf.png', 'media/bf.png']
         self.figures = []
         self.predicted = []
         self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
-        #       print(self.stack_of_steps["available_steps"])
         self.no_steps = False
         self.with_ai = False
         self.msg = QMessageBox()
         self.msg.setWindowTitle("Уведомдение")
         self.msg.setText("Игра окончена")
         self.styles = {"default": "QPushButton {background-color: green}",
-                       "white_clicked": "QPushButton {background-color: green; image : url(wf.png)}",
-                       "black_clicked": "QPushButton {background-color: green; image : url(bf.png)}",
+                       "white_clicked": "QPushButton {background-color: green; image : url(media/wf.png)}",
+                       "black_clicked": "QPushButton {background-color: green; image : url(media/bf.png)}",
                        "white_available": "QPushButton {background-color: yellow } "
-                                          "QPushButton:hover {image : url(wf.png)}",
+                                          "QPushButton:hover {image : url(media/wf.png)}",
                        "black_available": "QPushButton {background-color: yellow } "
-                                          "QPushButton:hover {image : url(bf.png)}"
+                                          "QPushButton:hover {image : url(media/bf.png)}"
                        }
         self.msg.setIcon(QMessageBox.Warning)
         buttons_layout.addWidget(self.new_game)
@@ -137,7 +148,7 @@ class Example(QWidget):
                 policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
                 policy.setHeightForWidth(True)
-                self.btn3.setMinimumSize(80, 80)
+                #               self.btn3.setMinimumSize(80, 80)
                 self.btn3.heightForWidth(self.btn3.height())
                 policy.setWidthForHeight(True)
                 self.btn3.setSizePolicy(policy)
@@ -154,6 +165,17 @@ class Example(QWidget):
     def settings_method(self):
         self.settings_object = Settings()
         self.settings_object.show()
+        self.settings_object.resolution.connect(self.change_res)
+        self.settings_object.show()
+
+    def change_res(self, res1, res2):
+        self.setFixedSize(res1, res2)
+
+    def load_mp3(self, filename):
+        media = QUrl.fromLocalFile(filename)
+        content = QtMultimedia.QMediaContent(media)
+        self.player = QtMultimedia.QMediaPlayer()
+        self.player.setMedia(content)
 
     def show_results(self):
         self.results = Results()
@@ -174,7 +196,6 @@ class Example(QWidget):
         for color in self.black_white.keys():
             for x, y in self.black_white[color]:
                 self.figures[x][y].setStyleSheet(self.styles[color + "_clicked"])
-        print(self.predicted)
         for x, y in self.predicted:
             try:
                 self.figures[x][y].setStyleSheet(self.styles[black_or_white(self.counter + 1 % 2) + "_available"])
@@ -187,7 +208,6 @@ class Example(QWidget):
             self.stack_of_steps["figures"].pop()
             self.stack_of_steps["predicted"].pop()
             self.stack_of_steps["available_steps"].pop()
-            print(self.stack_of_steps["available_steps"])
             if not self.game_mode.is_with_ai:
                 self.counter = (self.counter - 1) % 2
 
@@ -198,7 +218,7 @@ class Example(QWidget):
             self.available_steps = self.stack_of_steps["available_steps"][-1]
             self.render_field()
         else:
-            self.reset_game()
+            self.mode_select()
 
     def reset_game(self):
         self.predicted = []
@@ -219,7 +239,6 @@ class Example(QWidget):
                     self.predicted.append(list([i, j]))
                     self.figures[i][j].setEnabled(True)
                     if (i, j) in self.available_steps:
-                        #                        print(a[(i, j)])
                         for y, x in a[(i, j)]:
                             if [[y, x] not in self.available_steps[(i, j)]]:
                                 self.available_steps[(i, j)] += a[(i, j)]
@@ -232,10 +251,10 @@ class Example(QWidget):
             if self.no_steps:
                 if len(self.black_white['white']) > len(self.black_white['black']):
                     self.msg.setText('Результат: ' + '. Победили белые фишки.')
-                    winner = "Белые"
+                    winner = "Игрок 2"
                 elif len(self.black_white['white']) < len(self.black_white['black']):
                     self.msg.setText('Результат: ' + '. Победили чёрные фишки.')
-                    winner = "Чёрные"
+                    winner = "Игрок 1"
                 else:
                     self.msg.setText('Результат: ' + '. Ничья.')
                     winner = "Ничья"
@@ -244,9 +263,12 @@ class Example(QWidget):
                 conn = sqlite3.connect('result.db')
 
                 with conn:
+                    r_id = 0
+                    if winner != 'Ничья':
+                        r_id = winner[-1]
                     c = conn.cursor()
-                    c.execute('''INSERT INTO Games(score_1, score_2, winner) VALUES(?, ?, ?)''',
-                              (len(self.black_white['white']), len(self.black_white['black']), winner))
+                    c.execute('''INSERT INTO Games(score_1, score_2, winner, name_winner) VALUES(?, ?, ?, ?)''',
+                              (len(self.black_white['white']), len(self.black_white['black']), winner, r_id))
                 self.msg.exec()
 
 
@@ -256,8 +278,6 @@ class Example(QWidget):
                 self.predict_step()
         else:
             self.no_steps = False
-
-    #        print(self.available_steps)
 
     def start_game(self):
         self.counter = 0
@@ -279,7 +299,6 @@ class Example(QWidget):
     def step_ai(self):
         self.ai.get_values(self.predicted, self.available_steps)
         res = self.ai.calculate()
-        print(res)
         if len(self.predicted) > 0:
             self.figures[res[0]][res[1]].click()
 
@@ -292,10 +311,11 @@ class Example(QWidget):
         self.predicted = []
         self.render_field()
         self.figures[ind[0]][ind[1]].setStyleSheet(self.styles["default"])
+        self.player.play()
         time.sleep(.3)
+        self.player.stop()
         that_color, opponent_color = self.black_white[black_or_white(self.counter)], \
                                      self.black_white[black_or_white(self.counter + 1 % 2)]
-        #       print(self.available_steps[(ind[0], ind[1])])
         for y, x in self.available_steps[(ind[0], ind[1])]:
 
             if [y, x] not in that_color and [y, x] != ind:
@@ -347,6 +367,6 @@ class GameMode(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = Example()
+    ex = Game()
     ex.show()
     sys.exit(app.exec())

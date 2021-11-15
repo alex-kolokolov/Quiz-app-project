@@ -13,24 +13,24 @@ class Results(QMainWindow):
 
     def InitUI(self):
         self.setMinimumSize(QSize(480, 80))
-        self.setWindowTitle("Работа с QTableWidget")
+        self.setWindowTitle("Результаты")
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         grid_layout = QGridLayout()
         central_widget.setLayout(grid_layout)
         table = QTableWidget(self)
-        table.setColumnCount(4)
+        table.setColumnCount(5)
         table.setRowCount(1)
-        table.setHorizontalHeaderLabels(["Номер", "Счёт чёрных", "Счёт белых", "Победитель"])
+        table.setHorizontalHeaderLabels(["Номер", "Счёт игрока 1", "Счёт игрока 2", "Победитель", 'Имя Победителя'])
 
         table.resizeColumnsToContents()
         grid_layout.addWidget(table, 0, 0)
         self.connection = sqlite3.connect("result.db")
-        c = self.connection.cursor()
 
-
-        res = self.connection.cursor().execute("SELECT * FROM Games").fetchall()
-        print(res)
+        res = self.connection.cursor().execute("""SELECT Games.id, Games.score_1, Games.score_2, Games.winner, name AS name_winner
+                                               FROM
+                                                Games
+                                               INNER JOIN players_names ON Games.name_winner = players_names.id""").fetchall()
         for i, row in enumerate(res):
             table.setRowCount(
                 table.rowCount() + 1)
