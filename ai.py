@@ -1,14 +1,4 @@
-from math import inf
 import random
-
-
-class MinimaxAlgorithm:
-    def __init__(self, predict_step, black_white, d):
-        self.predict_step = predict_step
-        self.predicted = []
-        self.black_white = black_white
-        self.d = d
-        self.score = 0
 
 
 class RandomBot:
@@ -24,3 +14,5 @@ class RandomBot:
     def calculate(self):
         if len(self.predicted) > 0:
             return random.choice(self.predicted)
+
+

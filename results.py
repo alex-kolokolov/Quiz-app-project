@@ -4,6 +4,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QTableWidget, QTableWidgetItem
 from PyQt5.QtCore import QSize, Qt
 
+
 class Results(QMainWindow):
     def __init__(self):
 
@@ -27,18 +28,17 @@ class Results(QMainWindow):
         grid_layout.addWidget(table, 0, 0)
         self.connection = sqlite3.connect("result.db")
 
-        res = self.connection.cursor().execute("""SELECT Games.id, Games.score_1, Games.score_2, Games.winner, name AS name_winner
-                                               FROM
-                                                Games
-                                               INNER JOIN players_names ON Games.name_winner = players_names.id""").fetchall()
+        res = self.connection.cursor().execute("""SELECT Games.id, Games.score_1, Games.score_2, Games.winner, 
+        name AS name_winner 
+        FROM 
+        Games 
+        LEFT JOIN players_names ON Games.name_winner = players_names.id""").fetchall()
         for i, row in enumerate(res):
             table.setRowCount(
                 table.rowCount() + 1)
             for j, elem in enumerate(row):
                 table.setItem(
                     i, j, QTableWidgetItem(str(elem)))
-
-
 
     def closeEvent(self, event):
         self.connection.close()

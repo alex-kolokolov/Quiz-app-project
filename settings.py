@@ -27,6 +27,14 @@ class Settings(QWidget):
         self.clear_db.addWidget(self.clear_db_label)
         self.clear_db.addWidget(self.clear_db_button)
         self.main_layout.addLayout(self.clear_db)
+        self.reset_settings = QHBoxLayout()
+        self.reset_settings_label = QLabel()
+        self.reset_settings_label.setText('Cброс настроек главного окна')
+        self.reset_settings_button = QPushButton('Сбросить настройки', self)
+        self.reset_settings_button.clicked.connect(self.reset_settings_method)
+        self.reset_settings.addWidget(self.reset_settings_label)
+        self.reset_settings.addWidget(self.reset_settings_button)
+        self.main_layout.addLayout(self.reset_settings)
         self.set_name_layout = QVBoxLayout()
         self.set_name_player_1 = QHBoxLayout()
         self.set_name_player_1_label = QLabel()
@@ -58,6 +66,7 @@ class Settings(QWidget):
         self.set_name_layout.addLayout(self.set_name_player_1)
         self.set_name_layout.addLayout(self.set_name_player_2)
         self.main_layout.addLayout(self.set_name_layout)
+        self.set_name_player_1_line.textChanged.connect(self.change_name_method)
         self.set_name_player_2_line.textChanged.connect(self.change_name_method)
         self.set_color_for_figures = QVBoxLayout()
         self.set_color_for_figures_label = QLabel()
@@ -83,7 +92,7 @@ class Settings(QWidget):
         self.change_resolution_combo.findText(self.settings[2].rstrip())
         self.change_resolution.addWidget(self.change_resolution_label)
         self.change_resolution.addWidget(self.change_resolution_combo)
-        self.change_resolution_combo.currentTextChanged.connect(self.change_resoluton_method)
+        self.change_resolution_combo.currentTextChanged.connect(self.change_resolution_method)
         self.main_layout.addLayout(self.change_resolution)
         self.save_settings = QHBoxLayout()
         self.save_settings_layout = QLabel('Сохранить настройки', self)
@@ -106,15 +115,29 @@ class Settings(QWidget):
             else:
                 self.settings[1] = ' '.join([str(color.red()), str(color.green()), str(color.blue())]) + '\n'
 
-    def change_resoluton_method(self):
+    def change_resolution_method(self):
         self.settings[2] = f'{self.change_resolution_combo.currentText()}\n'
         self.resolution.emit(*[int(i) for i in self.change_resolution_combo.currentText().split('x')])
+
+    def closeEvent(self, event):
+        f = open('settings.txt', mode='w')
+        f.write(''.join(self.settings))
+        f.close()
 
     def save_settings_method(self):
         f = open('settings.txt', mode='w')
         f.write(''.join(self.settings))
         f.close()
         generate_pictures()
+
+    def reset_settings_method(self):
+        f = open('settings.txt', mode='w')
+        f.write('255 255 255\n')
+        f.write('0 0 0\n')
+        f.write('800x800')
+        f.close()
+        generate_pictures()
+
 
     def change_name_method(self):
         connection = sqlite3.connect('result.db')
@@ -126,7 +149,8 @@ class Settings(QWidget):
             sender_line_edit = self.set_name_player_2_line
             second_line_edit = self.set_name_player_1_line
             sender_id = 2
-        if len(sender_line_edit.text()) > 0 and sender_line_edit.text() != 'компьютер' and sender_line_edit.text().lower() != second_line_edit.text().lower():
+        if len(sender_line_edit.text()) > 0 and sender_line_edit.text() != 'компьютер' and \
+                sender_line_edit.text().lower() != second_line_edit.text().lower():
             connection.cursor().execute(f"""UPDATE players_names
             SET name  = (?)
             WHERE id = (?)""", (sender_line_edit.text(), sender_id)).fetchall()
@@ -154,3 +178,9 @@ class Settings(QWidget):
     id   INTEGER      PRIMARY KEY AUTOINCREMENT,
     name VARCHAR (16) 
 );""")
+        self.connection.cursor().execute("""INSERT INTO players_names(name) VALUES('Игрок 1')""").fetchall()
+        self.connection.cursor().execute("""INSERT INTO players_names(name) VALUES('Игрок 2')""").fetchall()
+        self.connection.commit()
+        self.connection.close()
+        self.set_name_player_1_line.setText('Игрок 1')
+        self.set_name_player_2_line.setText('Игрок 2')
