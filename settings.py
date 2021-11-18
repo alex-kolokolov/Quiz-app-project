@@ -6,15 +6,15 @@ from PyQt5.QtCore import *
 
 
 class Settings(QWidget):
-    resolution = pyqtSignal(int, int)
+    resolution = pyqtSignal(int, int)  # Инициализируем сигнал для отправки разрешения
 
     def __init__(self):
         super().__init__()
         self.InitUI()
 
     def InitUI(self):
-        self.setWindowTitle('Настроечки')
-        self.setMinimumSize(350, 140)
+        self.setWindowTitle('Настройки')
+        self.setMinimumSize(350, 350)
         with open('settings.txt', mode='r') as f:
             self.settings = [i for i in f.readlines()]
             f.close()
@@ -52,6 +52,7 @@ class Settings(QWidget):
         self.set_name_player_2_button = QPushButton('✓', self)
         self.set_name_player_2_button.clicked.connect(self.change_name_method)
 
+        """Заполнение полей QLineEdit из базы данных"""
         with sqlite3.connect('result.db') as db:
             a = db.cursor().execute("""SELECT players_names.name FROM players_names""").fetchall()
             if len(a) > 0:
@@ -66,8 +67,6 @@ class Settings(QWidget):
         self.set_name_layout.addLayout(self.set_name_player_1)
         self.set_name_layout.addLayout(self.set_name_player_2)
         self.main_layout.addLayout(self.set_name_layout)
-        self.set_name_player_1_line.textChanged.connect(self.change_name_method)
-        self.set_name_player_2_line.textChanged.connect(self.change_name_method)
         self.set_color_for_figures = QVBoxLayout()
         self.set_color_for_figures_label = QLabel()
         self.set_color_for_figures_label.setText('Выбрать цвет фишек')
@@ -106,38 +105,48 @@ class Settings(QWidget):
         self.msg.setWindowTitle("Уведомление")
         self.msg.setFixedSize(300, 150)
 
+
+
     def set_color_figures_method(self):
         f = open('settings.txt', mode='r')
         color = QColorDialog.getColor()
+        """Добавляем, если цвета не одинаковы и корректны"""
         if color.isValid() and color not in f.readlines():
-            if self.sender() == self.set_color_for_first_figures_button:
+            add_color = ' '.join([str(color.red()), str(color.green()), str(color.blue())]) + '\n'
+            if self.sender() == self.set_color_for_first_figures_button and add_color != self.settings[1]:
                 self.settings[0] = ' '.join([str(color.red()), str(color.green()), str(color.blue())]) + '\n'
-            else:
+            elif self.sender() == self.set_color_for_second_figures_button and add_color != self.settings[0]:
                 self.settings[1] = ' '.join([str(color.red()), str(color.green()), str(color.blue())]) + '\n'
+            else:
+                self.msg.setText('Выбраны одинаковые цвета для двух сторон')
+                self.msg.exec()
 
     def change_resolution_method(self):
         self.settings[2] = f'{self.change_resolution_combo.currentText()}\n'
+        """Вызов сигнала в главное окно"""
         self.resolution.emit(*[int(i) for i in self.change_resolution_combo.currentText().split('x')])
 
     def closeEvent(self, event):
-        f = open('settings.txt', mode='w')
-        f.write(''.join(self.settings))
-        f.close()
+        """Если окно закрывается, сохранить настройки"""
+        self.save_settings_method()
 
     def save_settings_method(self):
+        """Сохраняем настройки в виде файла"""
         f = open('settings.txt', mode='w')
         f.write(''.join(self.settings))
         f.close()
         generate_pictures()
 
     def reset_settings_method(self):
-        f = open('settings.txt', mode='w')
-        f.write('255 255 255\n')
-        f.write('0 0 0\n')
-        f.write('800x800')
-        f.close()
-        generate_pictures()
-
+        self.settings[0] = '255 255 255\n'
+        self.settings[1] = '0 0 0\n'
+        self.settings[2] = '800x800\n'
+        """Выводим в ComboBox нужное разрешение"""
+        index = self.change_resolution_combo.findText(self.settings[2].rstrip())
+        self.change_resolution_combo.setCurrentIndex(index)
+        self.change_resolution_combo.findText(self.settings[2].rstrip())
+        self.change_resolution_method()
+        self.save_settings_method()
 
     def change_name_method(self):
         connection = sqlite3.connect('result.db')
@@ -145,11 +154,14 @@ class Settings(QWidget):
             sender_line_edit = self.set_name_player_1_line
             second_line_edit = self.set_name_player_2_line
             sender_id = 1
-        else:
+        elif self.sender() == self.set_name_player_2_button:
             sender_line_edit = self.set_name_player_2_line
             second_line_edit = self.set_name_player_1_line
             sender_id = 2
-        if len(sender_line_edit.text()) > 0 and sender_line_edit.text() != 'компьютер' and \
+        """Проверка на то, является ли введёное имя игровым именем"""
+        if len(sender_line_edit.text()) > 0 and sender_line_edit.text().lower() != 'компьютер' \
+                and sender_line_edit.text().lower() != 'нет победителя' and \
+                sender_line_edit.text().lower() != 'нет победителей' and \
                 sender_line_edit.text().lower() != second_line_edit.text().lower():
             connection.cursor().execute(f"""UPDATE players_names
             SET name  = (?)
@@ -164,22 +176,34 @@ class Settings(QWidget):
         connection.close()
 
     def clear_db_method(self):
+        """Пересоздаём таблицы и вводим в них данные"""
         self.connection = sqlite3.connect("result.db")
         self.connection.cursor().execute("DROP TABLE Games")
         self.connection.cursor().execute("DROP TABLE players_names")
-        self.connection.cursor().execute("""CREATE TABLE Games (
-    id          INTEGER     PRIMARY KEY,
+        self.connection.cursor().execute("DROP TABLE game_results")
+        self.connection.cursor().execute("""CREATE TABLE games (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     score_1     INTEGER,
     score_2     INTEGER,
-    winner      VARCHAR (8),
-    name_winner             REFERENCES players_names (id) 
+    conclusion  INTEGER REFERENCES game_results (id),
+    name_winner         REFERENCES players_names (id) 
+);""")
+        self.connection.cursor().execute("""CREATE TABLE game_results (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    result VARCHAR
 );""")
         self.connection.cursor().execute("""CREATE TABLE players_names (
     id   INTEGER      PRIMARY KEY AUTOINCREMENT,
     name VARCHAR (16) 
 );""")
+        self.connection.cursor().execute("""INSERT INTO game_results(result) VALUES('Победил игрок 1')""").fetchall()
+        self.connection.cursor().execute("""INSERT INTO game_results(result) VALUES('Победил игрок 2')""").fetchall()
+        self.connection.cursor().execute("""INSERT INTO game_results(result) VALUES('Победил компьютер')""").fetchall()
+        self.connection.cursor().execute("""INSERT INTO game_results(result) VALUES('Ничья')""").fetchall()
         self.connection.cursor().execute("""INSERT INTO players_names(name) VALUES('Игрок 1')""").fetchall()
         self.connection.cursor().execute("""INSERT INTO players_names(name) VALUES('Игрок 2')""").fetchall()
+        self.connection.cursor().execute("""INSERT INTO players_names(name) VALUES('Компьютер')""").fetchall()
+        self.connection.cursor().execute("""INSERT INTO players_names(name) VALUES('Нет победителя')""").fetchall()
         self.connection.commit()
         self.connection.close()
         self.set_name_player_1_line.setText('Игрок 1')

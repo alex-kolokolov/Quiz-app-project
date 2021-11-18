@@ -13,4 +13,3 @@ def generate_pictures():
     draw.ellipse((0, 0, 45, 45), fill=tuple([int(i) for i in colors.readline().rstrip().split()]))
     im2.save('media/bf.png')
 
-

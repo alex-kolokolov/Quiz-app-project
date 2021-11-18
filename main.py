@@ -20,16 +20,19 @@ class Game(QWidget):
 
     def initUI(self):
         self.load_mp3('media/z.wav')
+        """Если файла настроек не существует, создаётся новый"""
         if not os.path.exists('settings.txt'):
             f = open('settings.txt', mode='w')
             f.write('255 255 255\n')
             f.write('0 0 0\n')
             f.write('800x800')
             f.close()
+
         with open('settings.txt', mode='r') as f:
+            """Берем из файла настроек значение разрешения"""
             res = [int(j) for j in [i.rstrip() for i in f.readlines()][2].split('x')]
             self.setFixedSize(res[0], res[1])
-        self.setGeometry(300, 300, 400, 400)
+        self.setGeometry(500, 200, 400, 400)
         self.setWindowTitle('Реверси')
         self.setWindowIcon(QIcon('media/r.ico'))
         main_layout = QVBoxLayout()
@@ -47,7 +50,7 @@ class Game(QWidget):
         self.new_game.clicked.connect(self.mode_select)
         self.last_games.clicked.connect(self.show_results)
         self.settings.clicked.connect(self.settings_method)
-        self.black_white = {'white': [], 'black': []}
+        self.black_white = {'white': [], 'black': []}  # Словарь с координатами поставленных фишек
         self.new_game.resize(150, 50)
         self.settings.move(250, 0)
         self.settings.resize(150, 50)
@@ -56,15 +59,16 @@ class Game(QWidget):
         self.last_step_button.clicked.connect(self.previous_step)
         self.last_step_button.move(100, 130)
         self.counter = 0
-        self.images = ['media/wf.png', 'media/bf.png']
+        self.images = ['media/wf.png', 'media/bf.png']  # путь до картинок
         self.figures = []
         self.predicted = []
-        self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
+        self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}  # 'стэк' предыдущих ходов
         self.no_steps = False
         self.with_ai = False
         self.msg = QMessageBox()
         self.msg.setWindowTitle("Уведомдение")
         self.msg.setText("Игра окончена")
+        """Словарь стилей кнопок"""
         self.styles = {"default": "QPushButton {background-color: green}",
                        "white_clicked": "QPushButton {background-color: green; image : url(media/wf.png)}",
                        "black_clicked": "QPushButton {background-color: green; image : url(media/bf.png)}",
@@ -81,17 +85,15 @@ class Game(QWidget):
         self.available_steps = dict()
         self.ai = RandomBot()
 
+        """Создаём пустое игровое поле"""
         for i in range(8):
             a = []
             for j in range(8):
-                # qp.drawRect(50 * i, 50 * j, 50, 50)
                 self.btn3 = QPushButton(self)
                 self.btn3.setText('')
                 self.btn3.setStyleSheet(self.styles["default"])
                 policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-
                 policy.setHeightForWidth(True)
-                #               self.btn3.setMinimumSize(80, 80)
                 self.btn3.heightForWidth(self.btn3.height())
                 policy.setWidthForHeight(True)
                 self.btn3.setSizePolicy(policy)
@@ -106,9 +108,12 @@ class Game(QWidget):
             self.figures.append(a)
 
     def black_or_white(self, arg: int):
+        """Функция для определения цвета по счетчику игры"""
         return 'white' if arg % 2 == 0 else 'black'
 
     def d(self, arg: list, that_color: list, opponent_color: list):
+        """Функция для определения возможных ходов и координат фишек, которые перевернутся при выборе определенного
+        хода """
         result_coordinates, coordinates = dict(), []
         for i in range(arg[0] - 1, arg[0] + 2):
             for j in range(arg[1] - 1, arg[1] + 2):
@@ -164,13 +169,19 @@ class Game(QWidget):
         return result_coordinates
 
     def settings_method(self):
+        """Вызывает окно-класс Setings"""
         self.settings_object = Settings()
         self.settings_object.show()
+        """подключаем сигнал из класса settings, для моментального получения разрешения из combobox"""
         self.settings_object.resolution.connect(self.change_res)
         self.settings_object.show()
 
+    """Метод, который вызывается при отправке сигнала"""
+
     def change_res(self, res1, res2):
         self.setFixedSize(res1, res2)
+
+    """Функция для загрузки аудио"""
 
     def load_mp3(self, filename):
         media = QUrl.fromLocalFile(filename)
@@ -178,25 +189,33 @@ class Game(QWidget):
         self.player = QtMultimedia.QMediaPlayer()
         self.player.setMedia(content)
 
+    """Вызывает окно класс Results"""
+
     def show_results(self):
         self.results = Results()
         self.results.show()
 
+    """Вызывает окно класса GameMode"""
+
     def mode_select(self):
         self.game_mode.show()
-        self.with_ai = self.game_mode.is_with_ai
-        self.reset_game()
+        """Подключение сигнала для отправки режима игры
+        Если True - с ии, False - два игрока"""
+        self.game_mode.mode.connect(self.reset_game)
 
     def render_field(self):
+        """Делаем зелёное игровое поле, то есть чистим после предыдущего хода"""
         for i in range(8):
 
             for j in range(8):
                 self.figures[i][j].setStyleSheet(self.styles["default"])
 
                 self.figures[i][j].setEnabled(False)
+        """Заполняем цветные фигуры"""
         for color in self.black_white.keys():
             for x, y in self.black_white[color]:
                 self.figures[x][y].setStyleSheet(self.styles[color + "_clicked"])
+        """Заполняем возможные ходы"""
         for x, y in self.predicted:
             try:
                 self.figures[x][y].setStyleSheet(self.styles[self.black_or_white(self.counter + 1 % 2) + "_available"])
@@ -205,10 +224,13 @@ class Game(QWidget):
                 print('ooops')
 
     def previous_step(self):
+        """Функция отечает за выбор предыдущего хода"""
         if len(self.stack_of_steps['figures']) > 1:
             self.stack_of_steps["figures"].pop()
             self.stack_of_steps["predicted"].pop()
             self.stack_of_steps["available_steps"].pop()
+
+            """Еслит без ии, меняем сторону, если с ии -- ничего не меняем"""
             if not self.game_mode.is_with_ai:
                 self.counter = (self.counter - 1) % 2
 
@@ -218,16 +240,21 @@ class Game(QWidget):
                                 'black': self.stack_of_steps["figures"][-1][1][:]}
             self.available_steps = self.stack_of_steps["available_steps"][-1]
             self.render_field()
+
         else:
+            """Если дошли до нулевого хода"""
             self.mode_select()
 
-    def reset_game(self):
+    def reset_game(self, with_ai):
+        """Пере инициализируем все данные, аннулируем все ходы, удаляем предыдущие ходы"""
+        self.game_mode.is_with_ai = with_ai
         self.predicted = []
         self.stack_of_steps = {"predicted": [], "figures": [], "available_steps": []}
         self.black_white = {'white': [], 'black': []}
         self.start_game()
 
     def predict_step(self):
+
         self.predicted = []
         self.available_steps = dict()
         opponent_color, that_color = self.black_white[self.black_or_white(self.counter)], \
@@ -235,6 +262,7 @@ class Game(QWidget):
 
         for enemy in opponent_color:
             try:
+                """Проходим по всем ходам, полученным из функции d"""
                 a = self.d(enemy, that_color=that_color, opponent_color=opponent_color)
                 for i, j in self.d(enemy, that_color=that_color, opponent_color=opponent_color).keys():
                     self.predicted.append(list([i, j]))
@@ -248,32 +276,31 @@ class Game(QWidget):
 
             except IndexError:
                 print('oops')
+        """Если нет возможных ходов"""
         if len(self.predicted) == 0:
+            """Если нет во второй раз возможных ходов -- игра окочена, иначе рекурсивно вызываем функцию"""
             if self.no_steps:
                 if len(self.black_white['white']) > len(self.black_white['black']):
-                    self.msg.setText('Результат: ' + '. Победил Игрок 2.')
                     if self.game_mode.is_with_ai:
-                        winner = 'Компьютер'
+                        r_id = 3
+                        self.msg.setText('Результат: ' + f'. Победил Компьютер.')
                     else:
-                        winner = "Игрок 2"
-                    self.msg.setText('Результат: ' + f'. Победил {winner}.')
+                        r_id = 2
+                        self.msg.setText('Результат: ' + '. Победил Игрок 2.')
                 elif len(self.black_white['white']) < len(self.black_white['black']):
                     self.msg.setText('Результат: ' + '. Победил Игрок 1.')
-                    winner = "Игрок 1"
+                    r_id = 1
                 else:
                     self.msg.setText('Результат: ' + '. Ничья.')
-                    winner = "Ничья"
+                    r_id = 4
                 self.msg.setText(self.msg.text() + f"\nСчёт: Игрок 1:{len(self.black_white['black'])}; "
                                                    f"Игрок 2:{len(self.black_white['white'])}")
                 conn = sqlite3.connect('result.db')
 
                 with conn:
-                    r_id = 0
-                    if winner != 'Ничья':
-                        r_id = winner[-1]
                     c = conn.cursor()
-                    c.execute('''INSERT INTO Games(score_1, score_2, winner, name_winner) VALUES(?, ?, ?, ?)''',
-                              (len(self.black_white['black']), len(self.black_white['white']), winner, r_id))
+                    c.execute('''INSERT INTO Games(score_1, score_2, conclusion, name_winner) VALUES(?, ?, ?, ?)''',
+                              (len(self.black_white['black']), len(self.black_white['white']), r_id, r_id))
                 self.msg.exec()
 
 
@@ -286,6 +313,7 @@ class Game(QWidget):
 
     def start_game(self):
         self.counter = 0
+        """Создаём начальные фишки"""
         for i in range(3, 5):
             for j in range(3, 5):
                 self.black_white[self.black_or_white(self.counter)].append([i, j])
@@ -294,6 +322,7 @@ class Game(QWidget):
 
             self.counter = (self.counter + 1) % 2
         self.predict_step()
+        """Аполениям предыдущий ход"""
         a, b, c, d = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:], dict(
             self.available_steps)
         self.stack_of_steps["figures"].append([a, b])
@@ -302,6 +331,7 @@ class Game(QWidget):
         self.render_field()
 
     def step_ai(self):
+        """Делаем ход ии"""
         self.ai.get_values(self.predicted, self.available_steps)
         res = self.ai.calculate()
         if len(self.predicted) > 0:
@@ -317,8 +347,10 @@ class Game(QWidget):
         self.render_field()
         self.figures[ind[0]][ind[1]].setStyleSheet(self.styles["default"])
         self.player.play()
+        """Задержка для отыгрывания музыки"""
         time.sleep(.3)
         self.player.stop()
+        """Запоняем данные для render_field"""
         that_color, opponent_color = self.black_white[self.black_or_white(self.counter)], \
                                      self.black_white[self.black_or_white(self.counter + 1 % 2)]
         for y, x in self.available_steps[(ind[0], ind[1])]:
@@ -331,17 +363,23 @@ class Game(QWidget):
             self.black_white[self.black_or_white(self.counter)].append(ind)
         self.predict_step()
         self.render_field()
+
+        """Условие для хода ии"""
         if self.game_mode.is_with_ai and self.counter % 2 == 1:
             self.step_ai()
         else:
+            """Иначе добавляем в предыдущие ходы. Заметьте, если ходит ии, то ходы ща ним не сохраняются"""
             a, b, c, d = self.black_white["white"][:], self.black_white["black"][:], self.predicted[:], dict(
-                self.available_steps)
+                self.available_steps)  # Избавляемся от сохранения в виде ссылки на list
             self.stack_of_steps["figures"].append([a, b])
             self.stack_of_steps["predicted"].append([c])
             self.stack_of_steps["available_steps"].append(d)
 
 
 class GameMode(QWidget):
+    """Класс выбора режима игры"""
+    mode = pyqtSignal(bool)  # Сигнал для выбора режима
+
     def __init__(self, *args):
         super().__init__()
         self.initUI()
@@ -362,11 +400,11 @@ class GameMode(QWidget):
         self.ui_layout.addWidget(self.ai_player)
 
     def two_players_mode(self):
-        self.is_with_ai = False
+        self.mode.emit(False)
         self.close()
 
     def with_ai_mode(self):
-        self.is_with_ai = True
+        self.mode.emit(True)
         self.close()
 
 
